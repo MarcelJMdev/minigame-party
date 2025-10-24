@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reaktionstest</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="container game-container">
+    <h1>⚡ Reaktionstest</h1>
+    
+    <div class="game-info">
+      <h2 id="instruction">Klicke auf START</h2>
+      <p>Klicke so schnell wie möglich wenn die Farbe wechselt!</p>
+      <div class="score-display">Reaktionszeit: <span id="reactionTime">---</span> ms</div>
+    </div>
+    
+    <div id="reactionBox" style="width: 100%; height: 300px; background: #e74c3c; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 2em; color: white; cursor: pointer; margin: 20px 0;">
+      Warte...
+    </div>
+    
+    <button onclick="startReactionTest()">🎮 START</button>
+    <button onclick="window.location.href='../menu.html'" style="background: #666;">⬅️ Zurück</button>
+    
+    <div class="leaderboard">
+      <h3>🏆 Rangliste (schnellste Zeiten)</h3>
+      <div class="leaderboard-tabs">
+        <button class="tab active" onclick="loadLeaderboard('daily')">📅 Heute</button>
+        <button class="tab" onclick="loadLeaderboard('alltime')">🌟 All-Time</button>
+      </div>
+      <div id="leaderboardContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '../login.html';
+    
+    let startTime = 0;
+    let timeout = null;
+    let gameActive = false;
+    let attempts = [];
+    let currentAttempt = 0;
+    const maxAttempts = 5;
+    
+    const reactionBox = document.getElementById('reactionBox');
+    
+    function startReactionTest() {
+      attempts = [];
+      currentAttempt = 0;
+      runAttempt();
+    }
+    
+    function runAttempt() {
+      if (currentAttempt >= maxAttempts) {
+        finishTest();
+        return;
+      }
+      
+      currentAttempt++;
+      gameActive = false;
+      
+      reactionBox.style.background = '#e74c3c';
+      reactionBox.textContent = `Runde ${currentAttempt}/${maxAttempts} - Warte...`;
+      document.getElementById('instruction').textContent = 'Warte auf GRÜN!';
+      document.getElementById('reactionTime').textContent = '---';
+      
+      // Zufällige Wartezeit zwischen 2-5 Sekunden
+      const waitTime = 2000 + Math.random() * 3000;
+      
+      timeout = setTimeout(() => {
+        reactionBox.style.background = '#2ecc71';
+        reactionBox.textContent = 'JETZT KLICKEN!';
+        document.getElementById('instruction').textContent = '⚡ KLICK JETZT! ⚡';
+        startTime = Date.now();
+        gameActive = true;
+      }, waitTime);
+    }
+    
+    reactionBox.addEventListener('click', () => {
+      if (!gameActive) {
+        // Zu früh geklickt
+        if (timeout) {
+          clearTimeout(timeout);
+          reactionBox.style.background = '#e74c3c';
+          reactionBox.textContent = '❌ Zu früh! Warte auf GRÜN';
+          document.getElementById('instruction').textContent = 'Zu früh geklickt!';
+          setTimeout(() => runAttempt(), 1500);
+        }
+        return;
+      }
+      
+      // Korrekt geklickt
+      const reactionTime = Date.now() - startTime;
+      attempts.push(reactionTime);
+      
+      document.getElementById('reactionTime').textContent = reactionTime;
+      reactionBox.style.background = '#3498db';
+      reactionBox.textContent = `${reactionTime}ms - Gut!`;
+      
+      gameActive = false;
+      setTimeout(() => runAttempt(), 1500);
+    });
+    
+    function finishTest() {
+      // Berechne Durchschnitt (Score = niedrigere Zeit ist besser)
+      const avgTime = Math.round(attempts.reduce((a, b) => a + b, 0) / attempts.length);
+      
+      // Score: Je niedriger die Zeit, desto höher der Score
+      // 100ms = 10000 Punkte, 500ms = 2000 Punkte
+      const score = Math.round(10000 / (avgTime / 100));
+      
+      reactionBox.style.background = '#9b59b6';
+      reactionBox.textContent = `Fertig! Ø ${avgTime}ms`;
+      document.getElementById('instruction').textContent = `Durchschnitt: ${avgTime}ms`;
+      document.getElementById('reactionTime').textContent = avgTime;
+      
+      saveScore(score, avgTime);
+    }
+    
+    async function saveScore(score, avgTime) {
+      try {
+        const response = await fetch('http://localhost:3000/api/scores', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ game: 'reaction', score })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          alert(`Durchschnitt: ${avgTime}ms | Score: ${score} | +${data.coins} Münzen 🪙`);
+          loadLeaderboard('daily');
+        }
+      } catch (error) {
+        console.error('Fehler:', error);
+      }
+    }
+    
+    async function loadLeaderboard(type) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/leaderboard/reaction/${type}`);
+        const data = await response.json();
+        
+        const content = document.getElementById('leaderboardContent');
+        content.innerHTML = data.slice(0, 10).map((entry, i) => `
+          <div class="leaderboard-item">
+            <span class="rank">#${i + 1}</span>
+            ${entry.avatar ? `<img src="${entry.avatar}" alt="Avatar">` : ''}
+            <span class="username">${entry.username}</span>
+            <span class="score">${entry.score}</span>
+          </div>
+        `).join('');
+        
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+      } catch (error) {
+        console.error('Fehler:', error);
+      }
+    }
+    
+    loadLeaderboard('daily');
+  </script>
+</body>
+</html>
