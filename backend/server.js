@@ -4,7 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const path = require('path'); // für Frontend
+const path = require('path');
 const db = require('./database');
 
 const app = express();
@@ -15,17 +15,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dein-super-geheimer-key-hier';
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
   max: 100
 });
 app.use(limiter);
-
-// ================= Root-Route =================
-app.get("/", (req, res) => {
-  res.send("Backend läuft! 🎉");
-});
 
 // ================= Auth Middleware =================
 const authenticateToken = (req, res, next) => {
@@ -160,10 +154,8 @@ app.get('/api/leaderboard/:game/:type', async (req, res) => {
 
 // ================= Frontend ausliefern =================
 app.use(express.static(path.join(__dirname, '../frontend')));
-
-// Alle anderen Routen auf index.html umleiten
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  res.sendFile(path.join(__dirname, '../frontend/login.html'));
 });
 
 // ================= SERVER START =================
