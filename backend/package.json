@@ -4,6 +4,7 @@
   "description": "Backend für Minigame Party",
   "main": "server.js",
   "scripts": {
+    "build": "npm rebuild sqlite3 --build-from-source",
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
