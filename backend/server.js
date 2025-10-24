@@ -10,7 +10,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dein-super-geheimer-key-hier';
 
-// Middleware
+// ================= Middleware =================
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
@@ -21,7 +21,12 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Auth Middleware
+// ================= Root-Route =================
+app.get("/", (req, res) => {
+  res.send("Backend läuft! 🎉");
+});
+
+// ================= Auth Middleware =================
 const authenticateToken = (req, res, next) => {
   const token = req.headers['authorization']?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Kein Token vorhanden' });
@@ -33,23 +38,17 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// ============= AUTH ROUTES =============
+// ================= AUTH ROUTES =================
 
 // Registrierung
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, ipAddress } = req.body;
 
-    // Username Check
     const userCheck = await db.getUserByUsername(username);
-    if (userCheck) {
-      return res.status(400).json({ error: 'Benutzername bereits vergeben' });
-    }
+    if (userCheck) return res.status(400).json({ error: 'Benutzername bereits vergeben' });
 
-    // Passwort hashen
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // User erstellen
     const userId = await db.createUser(username, hashedPassword, ipAddress);
     const token = jwt.sign({ userId, username }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -66,38 +65,27 @@ app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
 
     const user = await db.getUserByUsername(username);
-    if (!user) {
-      return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
-    }
+    if (!user) return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
 
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
-    }
+    if (!validPassword) return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
 
     const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ 
-      token, 
-      userId: user.id, 
-      username: user.username,
-      hasAvatar: !!user.avatar
-    });
+    res.json({ token, userId: user.id, username: user.username, hasAvatar: !!user.avatar });
   } catch (error) {
     console.error('Login-Fehler:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
-// ============= USER ROUTES =============
+// ================= USER ROUTES =================
 
 // Profil abrufen
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
   try {
     const user = await db.getUserById(req.user.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-    }
+    if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
 
     res.json({
       username: user.username,
@@ -127,11 +115,8 @@ app.post('/api/user/avatar', authenticateToken, async (req, res) => {
 app.put('/api/user/username', authenticateToken, async (req, res) => {
   try {
     const { newUsername } = req.body;
-    
     const existing = await db.getUserByUsername(newUsername);
-    if (existing) {
-      return res.status(400).json({ error: 'Benutzername bereits vergeben' });
-    }
+    if (existing) return res.status(400).json({ error: 'Benutzername bereits vergeben' });
 
     await db.updateUsername(req.user.userId, newUsername);
     res.json({ message: 'Benutzername geändert' });
@@ -145,17 +130,14 @@ app.put('/api/user/username', authenticateToken, async (req, res) => {
 app.put('/api/user/password', authenticateToken, async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    
+
     const user = await db.getUserById(req.user.userId);
     const validPassword = await bcrypt.compare(oldPassword, user.password);
-    
-    if (!validPassword) {
-      return res.status(400).json({ error: 'Altes Passwort falsch' });
-    }
+    if (!validPassword) return res.status(400).json({ error: 'Altes Passwort falsch' });
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await db.updatePassword(req.user.userId, hashedPassword);
-    
+
     res.json({ message: 'Passwort geändert' });
   } catch (error) {
     console.error('Passwort-Fehler:', error);
@@ -163,18 +145,17 @@ app.put('/api/user/password', authenticateToken, async (req, res) => {
   }
 });
 
-// ============= GAME ROUTES =============
+// ================= GAME ROUTES =================
 
 // Score speichern
 app.post('/api/scores', authenticateToken, async (req, res) => {
   try {
     const { game, score } = req.body;
     await db.saveScore(req.user.userId, game, score);
-    
-    // Münzen hinzufügen (z.B. score / 10)
+
     const coins = Math.floor(score / 10);
     await db.addCoins(req.user.userId, coins);
-    
+
     res.json({ message: 'Score gespeichert', coins });
   } catch (error) {
     console.error('Score-Fehler:', error);
@@ -194,7 +175,7 @@ app.get('/api/leaderboard/:game/:type', async (req, res) => {
   }
 });
 
-// Server starten
+// ================= SERVER START =================
 app.listen(PORT, () => {
   console.log(`🚀 Server läuft auf http://localhost:${PORT}`);
 });
