@@ -4,6 +4,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const path = require('path'); // für Frontend
 const db = require('./database');
 
 const app = express();
@@ -39,12 +40,9 @@ const authenticateToken = (req, res, next) => {
 };
 
 // ================= AUTH ROUTES =================
-
-// Registrierung
 app.post('/api/register', async (req, res) => {
   try {
     const { username, password, ipAddress } = req.body;
-
     const userCheck = await db.getUserByUsername(username);
     if (userCheck) return res.status(400).json({ error: 'Benutzername bereits vergeben' });
 
@@ -59,11 +57,9 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// Login
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-
     const user = await db.getUserByUsername(username);
     if (!user) return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
 
@@ -71,7 +67,6 @@ app.post('/api/login', async (req, res) => {
     if (!validPassword) return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
 
     const token = jwt.sign({ userId: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-
     res.json({ token, userId: user.id, username: user.username, hasAvatar: !!user.avatar });
   } catch (error) {
     console.error('Login-Fehler:', error);
@@ -80,8 +75,6 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ================= USER ROUTES =================
-
-// Profil abrufen
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
   try {
     const user = await db.getUserById(req.user.userId);
@@ -99,7 +92,6 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// Avatar speichern
 app.post('/api/user/avatar', authenticateToken, async (req, res) => {
   try {
     const { avatar } = req.body;
@@ -111,7 +103,6 @@ app.post('/api/user/avatar', authenticateToken, async (req, res) => {
   }
 });
 
-// Username ändern
 app.put('/api/user/username', authenticateToken, async (req, res) => {
   try {
     const { newUsername } = req.body;
@@ -126,18 +117,15 @@ app.put('/api/user/username', authenticateToken, async (req, res) => {
   }
 });
 
-// Passwort ändern
 app.put('/api/user/password', authenticateToken, async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-
     const user = await db.getUserById(req.user.userId);
     const validPassword = await bcrypt.compare(oldPassword, user.password);
     if (!validPassword) return res.status(400).json({ error: 'Altes Passwort falsch' });
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await db.updatePassword(req.user.userId, hashedPassword);
-
     res.json({ message: 'Passwort geändert' });
   } catch (error) {
     console.error('Passwort-Fehler:', error);
@@ -146,16 +134,12 @@ app.put('/api/user/password', authenticateToken, async (req, res) => {
 });
 
 // ================= GAME ROUTES =================
-
-// Score speichern
 app.post('/api/scores', authenticateToken, async (req, res) => {
   try {
     const { game, score } = req.body;
     await db.saveScore(req.user.userId, game, score);
-
     const coins = Math.floor(score / 10);
     await db.addCoins(req.user.userId, coins);
-
     res.json({ message: 'Score gespeichert', coins });
   } catch (error) {
     console.error('Score-Fehler:', error);
@@ -163,7 +147,6 @@ app.post('/api/scores', authenticateToken, async (req, res) => {
   }
 });
 
-// Ranglisten abrufen
 app.get('/api/leaderboard/:game/:type', async (req, res) => {
   try {
     const { game, type } = req.params;
@@ -173,6 +156,14 @@ app.get('/api/leaderboard/:game/:type', async (req, res) => {
     console.error('Leaderboard-Fehler:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
+});
+
+// ================= Frontend ausliefern =================
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Alle anderen Routen auf index.html umleiten
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // ================= SERVER START =================
