@@ -1,41 +1,36 @@
-// Auth Helper Functions
+// frontend/js/auth.js
+
+// ================= API URL =================
 const API_URL = "https://minigame-party.onrender.com/api";
 
-// Check if user is authenticated
+// ================= Auth Helper Functions =================
 function isAuthenticated() {
-  const token = localStorage.getItem('token');
-  return !!token;
+  return !!localStorage.getItem('token');
 }
 
-// Get current token
 function getToken() {
   return localStorage.getItem('token');
 }
 
-// Get current username
 function getUsername() {
   return localStorage.getItem('username');
 }
 
-// Set auth data
 function setAuthData(token, username) {
   localStorage.setItem('token', token);
   localStorage.setItem('username', username);
 }
 
-// Clear auth data
 function clearAuthData() {
   localStorage.removeItem('token');
   localStorage.removeItem('username');
 }
 
-// Logout function
 function logout() {
   clearAuthData();
   window.location.href = '/login.html';
 }
 
-// Check authentication on protected pages
 function requireAuth() {
   if (!isAuthenticated()) {
     window.location.href = '/login.html';
@@ -44,17 +39,15 @@ function requireAuth() {
   return true;
 }
 
-// Fetch with authentication
+// ================= Fetch with Auth =================
 async function authenticatedFetch(endpoint, options = {}) {
   const token = getToken();
-  
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
     }
   };
-  
   const mergedOptions = {
     ...defaultOptions,
     ...options,
@@ -63,17 +56,16 @@ async function authenticatedFetch(endpoint, options = {}) {
       ...options.headers
     }
   };
-  
+
   try {
     const response = await fetch(`${API_URL}${endpoint}`, mergedOptions);
-    
-    // If unauthorized, logout
+
     if (response.status === 401 || response.status === 403) {
       clearAuthData();
       window.location.href = '/login.html';
       return null;
     }
-    
+
     return response;
   } catch (error) {
     console.error('Fetch error:', error);
@@ -81,77 +73,68 @@ async function authenticatedFetch(endpoint, options = {}) {
   }
 }
 
-// Login function
+// ================= Login Function =================
 async function loginUser(username, password) {
   try {
     const response = await fetch(`${API_URL}/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-    
+
     const data = await response.json();
-    
+
     if (response.ok) {
       setAuthData(data.token, data.username);
       return { success: true, data };
     } else {
-      return { success: false, error: data.error };
+      console.error('Login-Fehler vom Backend:', data);
+      return { success: false, error: data.error || 'Unbekannter Fehler' };
     }
   } catch (error) {
-    return { success: false, error: 'Verbindungsfehler' };
+    console.error('Fetch-Fehler beim Login:', error);
+    return { success: false, error: error.message || 'Verbindungsfehler' };
   }
 }
 
-// Register function
-async function registerUser(username, password ) {
+// ================= Register Function =================
+async function registerUser(username, password) {
   try {
     const response = await fetch(`${API_URL}/register`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-    
+
     const data = await response.json();
-    
+
     if (response.ok) {
       setAuthData(data.token, data.username);
       return { success: true, data };
     } else {
-      return { success: false, error: data.error };
+      console.error('Registrierungsfehler vom Backend:', data);
+      return { success: false, error: data.error || 'Unbekannter Fehler' };
     }
   } catch (error) {
-    return { success: false, error: 'Verbindungsfehler' };
+    console.error('Fetch-Fehler bei Registrierung:', error);
+    return { success: false, error: error.message || 'Verbindungsfehler' };
   }
 }
 
-// Validate password strength
+// ================= Validation =================
 function validatePassword(password) {
-  if (password.length < 6) {
-    return { valid: false, message: 'Passwort muss mindestens 6 Zeichen lang sein' };
-  }
+  if (password.length < 6) return { valid: false, message: 'Passwort muss mindestens 6 Zeichen lang sein' };
   return { valid: true };
 }
 
-// Validate username
 function validateUsername(username) {
-  if (username.length < 3) {
-    return { valid: false, message: 'Benutzername muss mindestens 3 Zeichen lang sein' };
-  }
-  if (username.length > 20) {
-    return { valid: false, message: 'Benutzername darf maximal 20 Zeichen lang sein' };
-  }
-  if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
-    return { valid: false, message: 'Benutzername darf nur Buchstaben, Zahlen, _ und - enthalten' };
-  }
+  if (username.length < 3) return { valid: false, message: 'Benutzername muss mindestens 3 Zeichen lang sein' };
+  if (username.length > 20) return { valid: false, message: 'Benutzername darf maximal 20 Zeichen lang sein' };
+  if (!/^[a-zA-Z0-9_-]+$/.test(username)) return { valid: false, message: 'Benutzername darf nur Buchstaben, Zahlen, _ und - enthalten' };
   return { valid: true };
 }
 
-// Show message helper
+// ================= Message Helpers =================
 function showMessage(elementId, message, type = 'error') {
   const element = document.getElementById(elementId);
   if (element) {
@@ -161,10 +144,7 @@ function showMessage(elementId, message, type = 'error') {
   }
 }
 
-// Hide message helper
 function hideMessage(elementId) {
   const element = document.getElementById(elementId);
-  if (element) {
-    element.style.display = 'none';
-  }
+  if (element) element.style.display = 'none';
 }
