@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Burger bauen</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="container game-container">
+    <h1>🍔 Burger bauen</h1>
+    
+    <div class="game-info">
+      <h2 id="instruction">Klicke START um zu beginnen</h2>
+      <p>Baue den Burger in der richtigen Reihenfolge!</p>
+      <div class="score-display">
+        Zeit: <span id="timer">0.0</span>s | Fehler: <span id="errors">0</span>
+      </div>
+    </div>
+    
+    <div style="background: white; padding: 20px; border-radius: 12px; margin: 20px 0;">
+      <div id="targetBurger" style="text-align: center; font-size: 3em; margin-bottom: 20px;"></div>
+      <div id="playerBurger" style="text-align: center; font-size: 3em; min-height: 60px; border-top: 2px solid #ccc; padding-top: 10px;"></div>
+    </div>
+    
+    <div class="tools" id="ingredients" style="font-size: 2em;"></div>
+    
+    <button onclick="startGame()">🎮 START</button>
+    <button onclick="window.location.href='../menu.html'" style="background: #666;">⬅️ Zurück</button>
+    
+    <div class="leaderboard">
+      <h3>🏆 Rangliste</h3>
+      <div class="leaderboard-tabs">
+        <button class="tab active" onclick="loadLeaderboard('daily')">📅 Heute</button>
+        <button class="tab" onclick="loadLeaderboard('alltime')">🌟 All-Time</button>
+      </div>
+      <div id="leaderboardContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '../login.html';
+    
+    const ingredients = ['🍞', '🥬', '🍅', '🧀', '🥓', '🍔'];
+    let targetOrder = [];
+    let playerOrder = [];
+    let startTime = 0;
+    let timerInterval = null;
+    let errors = 0;
+    let gameActive = false;
+    
+    function startGame() {
+      gameActive = true;
+      errors = 0;
+      playerOrder = [];
+      targetOrder = ['🍞', ...shuffleArray([...ingredients.slice(1, -1)]), '🍔', '🍞'];
+      
+      document.getElementById('targetBurger').innerHTML = targetOrder.join('');
+      document.getElementById('playerBurger').innerHTML = '';
+      document.getElementById('errors').textContent = '0';
+      document.getElementById('instruction').textContent = 'Baue den Burger nach!';
+      
+      const ingredientsDiv = document.getElementById('ingredients');
+      ingredientsDiv.innerHTML = '';
+      
+      [...ingredients].forEach(ing => {
+        const btn = document.createElement('button');
+        btn.textContent = ing;
+        btn.onclick = () => addIngredient(ing);
+        btn.style.fontSize = '2em';
+        btn.style.padding = '15px';
+        ingredientsDiv.appendChild(btn);
+      });
+      
+      startTime = Date.now();
+      timerInterval = setInterval(updateTimer, 100);
+    }
+    
+    function shuffleArray(arr) {
+      const newArr = [...arr];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+    
+    function addIngredient(ing) {
+      if (!gameActive) return;
+      
+      playerOrder.push(ing);
+      document.getElementById('playerBurger').innerHTML = playerOrder.join('');
+      
+      const expectedIndex = playerOrder.length - 1;
+      if (playerOrder[expectedIndex] !== targetOrder[expectedIndex]) {
+        errors++;
+        document.getElementById('errors').textContent = errors;
+      }
+      
+      if (playerOrder.length === targetOrder.length) {
+        endGame();
+      }
+    }
+    
+    function updateTimer() {
+      const elapsed = (Date.now() - startTime) / 1000;
+      document.getElementById('timer').textContent = elapsed.toFixed(1);
+    }
+    
+    function endGame() {
+      gameActive = false;
+      clearInterval(timerInterval);
+      
+      const time = (Date.now() - startTime) / 1000;
+      const score = Math.max(0, Math.round(10000 / time - errors * 100));
+      
+      document.getElementById('instruction').textContent = `Fertig! Score: ${score}`;
+      
+      saveScore(score);
+    }
+    
+    async function saveScore(score) {
+      try {
+        const response = await fetch('http://localhost:3000/api/scores', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ game: 'burger', score })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          alert(`Score: ${score} | +${data.coins} Münzen 🪙`);
+          loadLeaderboard('daily');
+        }
+      } catch (error) {
+        console.error('Fehler:', error);
+      }
+    }
+    
+    async function loadLeaderboard(type) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/leaderboard/burger/${type}`);
+        const data = await response.json();
+        
+        const content = document.getElementById('leaderboardContent');
+        content.innerHTML = data.slice(0, 10).map((entry, i) => `
+          <div class="leaderboard-item">
+            <span class="rank">#${i + 1}</span>
+            ${entry.avatar ? `<img src="${entry.avatar}" alt="Avatar">` : ''}
+            <span class="username">${entry.username}</span>
+            <span class="score">${entry.score}</span>
+          </div>
+        `).join('');
+        
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+      } catch (error) {
+        console.error('Fehler:', error);
+      }
+    }
+    
+    loadLeaderboard('daily');
+  </script>
+</body>
+</html>

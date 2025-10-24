@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Münzturm</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="container game-container">
+    <h1>🪙 Münzturm</h1>
+    
+    <div class="game-info">
+      <h2>Staple Münzen so hoch wie möglich!</h2>
+      <p>Klicke zur richtigen Zeit um zu stapeln</p>
+      <div class="score-display">Höhe: <span id="score">0</span></div>
+    </div>
+    
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    
+    <button onclick="dropCoin()" id="dropBtn">🪙 Münze platzieren</button>
+    <button onclick="resetGame()">🔄 Neustart</button>
+    <button onclick="window.location.href='../menu.html'" style="background: #666;">⬅️ Zurück</button>
+    
+    <div class="leaderboard">
+      <h3>🏆 Rangliste</h3>
+      <div class="leaderboard-tabs">
+        <button class="tab active" onclick="loadLeaderboard('daily')">📅 Heute</button>
+        <button class="tab" onclick="loadLeaderboard('alltime')">🌟 All-Time</button>
+      </div>
+      <div id="leaderboardContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const token = localStorage.getItem('token');
+    
+    if (!token) window.location.href = '../login.html';
+    
+    let coins = [];
+    let currentCoin = null;
+    let coinSpeed = 2;
+    let gameOver = false;
+    let score = 0;
+    
+    class Coin {
+      constructor(x, y, isMoving = false) {
+        this.x = x;
+        this.y = y;
+        this.width = 60;
+        this.height = 15;
+        this.isMoving = isMoving;
+        this.direction = 1;
+        this.speed = coinSpeed;
+      }
+      
+      draw() {
+        ctx.fillStyle = '#FFD700';
+        ctx.strokeStyle = '#FFA500';
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      
+      update() {
+        if (this.isMoving) {
+          this.x += this.speed * this.direction;
+          
+          if (this.x - this.width / 2 <= 0 || this.x + this.width / 2 >= canvas.width) {
+            this.direction *= -1;
+          }
+        }
+      }
+    }
+    
+    function init() {
+      coins = [];
+      coins.push(new Coin(canvas.width / 2, canvas.height - 50));
+      currentCoin = new Coin(canvas.width / 2, canvas.height - 100, true);
+      gameOver = false;
+      score = 0;
+      coinSpeed = 2;
+      document.getElementById('score').textContent = score;
+      gameLoop();
+    }
+    
+    function gameLoop() {
+      if (gameOver) return;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Zeichne alle platzierten Münzen
+      coins.forEach(coin => coin.draw());
+      
+      // Zeichne aktuelle Münze
+      if (currentCoin) {
+        currentCoin.update();
+        currentCoin.draw();
+      }
+      
+      requestAnimationFrame(gameLoop);
+    }
+    
+    function dropCoin() {
+      if (gameOver || !currentCoin) return;
+      
+      currentCoin.isMoving = false;
+      
+      // Check ob die Münze auf der vorherigen liegt
+      const lastCoin = coins[coins.length - 1];
+      const overlap = Math.abs(currentCoin.x - lastCoin.x);
+      
+      if (overlap > currentCoin.width * 0.7) {
+        // Zu weit daneben - Game Over
+        gameOver = true;
+        saveScore(score);
+        alert(`Game Over! Höhe: ${score}`);
+        return;
+      }
+      
+      coins.push(currentCoin);
+      score++;
+      document.getElementById('score').textContent = score;
+      
+      // Erhöhe Schwierigkeit
+      coinSpeed += 0.3;
+      
+      // Neue Münze
+      const newY = currentCoin.y - 20;
+      if (newY < 50) {
+        // Gewonnen!
+        gameOver = true;
+        saveScore(score);
+        alert(`Wow! Du hast gewonnen! Höhe: ${score}`);
+        return;
+      }
+      
+      currentCoin = new Coin(Math.random() * canvas.width, newY, true);
+      currentCoin.speed = coinSpeed;
+    }
+    
+    function resetGame() {
+      init();
+    }
+    
+    async function saveScore(finalScore) {
+      try {
+        const response = await fetch('http://localhost:3000/api/scores', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ game: 'coins', score: finalScore })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          alert(`Score gespeichert! +${data.coins} Münzen 🪙`);
+          loadLeaderboard('daily');
+        }
+      } catch (error) {
+        console.error('Fehler:', error);
+      }
+    }
+    
+    async function loadLeaderboard(type) {
+      try {
+        const response = await fetch(`http://localhost:3000/api/leaderboard/coins/${type}`);
+        const data = await response.json();
+        
+        const content = document.getElementById('leaderboardContent');
+        content.innerHTML = data.slice(0, 10).map((entry, i) => `
+          <div class="leaderboard-item">
+            <span class="rank">#${i + 1}</span>
+            ${entry.avatar ? `<img src="${entry.avatar}" alt="Avatar">` : ''}
+            <span class="username">${entry.username}</span>
+            <span class="score">${entry.score}</span>
+          </div>
+        `).join('');
+        
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        event.target.classList.add('active');
+      } catch (error) {
+        console.error('Fehler:', error);
+      }
+    }
+    
+    init();
+    loadLeaderboard('daily');
+  </script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avatar erstellen - Minigame Party</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 Erstelle deinen Avatar</h1>
+    <p style="text-align: center; margin-bottom: 20px;">Zeichne deinen eigenen Avatar!</p>
+    
+    <canvas id="avatarCanvas" width="300" height="300"></canvas>
+    
+    <div class="color-picker">
+      <label>Farbe:</label>
+      <input type="color" id="colorPicker" value="#000000">
+      <label>Pinselgröße:</label>
+      <input type="range" id="brushSize" min="1" max="20" value="5">
+      <span id="brushSizeValue">5</span>
+    </div>
+    
+    <div class="tools">
+      <button onclick="clearCanvas()">🗑️ Löschen</button>
+      <button onclick="useEraser()">🧹 Radierer</button>
+      <button onclick="usePen()">✏️ Stift</button>
+    </div>
+    
+    <button onclick="saveAvatar()">💾 Avatar speichern</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('avatarCanvas');
+    const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const brushSize = document.getElementById('brushSize');
+    const brushSizeValue = document.getElementById('brushSizeValue');
+    
+    let isDrawing = false;
+    let currentTool = 'pen';
+    
+    // Canvas Hintergrund weiß machen
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    brushSize.addEventListener('input', (e) => {
+      brushSizeValue.textContent = e.target.value;
+    });
+    
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    
+    // Touch Support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousedown', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      canvas.dispatchEvent(mouseEvent);
+    });
+    
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const mouseEvent = new MouseEvent('mousemove', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+      });
+      canvas.dispatchEvent(mouseEvent);
+    });
+    
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      const mouseEvent = new MouseEvent('mouseup', {});
+      canvas.dispatchEvent(mouseEvent);
+    });
+    
+    function startDrawing(e) {
+      isDrawing = true;
+      draw(e);
+    }
+    
+    function draw(e) {
+      if (!isDrawing) return;
+      
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      ctx.lineWidth = brushSize.value;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      if (currentTool === 'pen') {
+        ctx.strokeStyle = colorPicker.value;
+      } else if (currentTool === 'eraser') {
+        ctx.strokeStyle = 'white';
+      }
+      
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+    
+    function stopDrawing() {
+      isDrawing = false;
+      ctx.beginPath();
+    }
+    
+    function clearCanvas() {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    function useEraser() {
+      currentTool = 'eraser';
+    }
+    
+    function usePen() {
+      currentTool = 'pen';
+    }
+    
+    async function saveAvatar() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Nicht eingeloggt!');
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      const avatarData = canvas.toDataURL('image/png');
+      
+      try {
+        const response = await fetch('http://localhost:3000/api/user/avatar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ avatar: avatarData })
+        });
+        
+        if (response.ok) {
+          alert('Avatar gespeichert! 🎉');
+          window.location.href = 'menu.html';
+        } else {
+          alert('Fehler beim Speichern');
+        }
+      } catch (error) {
+        alert('Verbindungsfehler');
+      }
+    }
+  </script>
+</body>
+</html>
