@@ -1,5 +1,5 @@
 // Games Helper Functions
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://minigame-party.onrender.com/api';
 
 // Save game score
 async function saveGameScore(gameName, score) {

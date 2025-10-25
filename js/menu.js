@@ -1,5 +1,5 @@
 // Menu Helper Functions
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://minigame-party.onrender.com/api';
 
 // Load user profile data
 async function loadUserProfile() {

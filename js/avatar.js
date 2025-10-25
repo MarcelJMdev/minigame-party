@@ -3,6 +3,9 @@
 class AvatarCreator {
   constructor(canvasId, options = {}) {
     this.canvas = document.getElementById(canvasId);
+    if (!this.canvas) {
+      throw new Error(`Canvas element with id "${canvasId}" not found`);
+    }
     this.ctx = this.canvas.getContext('2d');
     
     // Default options
@@ -25,6 +28,8 @@ class AvatarCreator {
     this.currentColor = this.options.defaultColor;
     this.brushSize = this.options.defaultBrushSize;
     this.tool = 'pen'; // 'pen' or 'eraser'
+    this.lastX = 0;
+    this.lastY = 0;
     
     // Initialize
     this.clearCanvas();
@@ -42,12 +47,13 @@ class AvatarCreator {
     this.canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
       const touch = e.touches[0];
+      const rect = this.canvas.getBoundingClientRect();
       const mouseEvent = new MouseEvent('mousedown', {
         clientX: touch.clientX,
         clientY: touch.clientY
       });
-      this.canvas.dispatchEvent(mouseEvent);
-    });
+      this.startDrawing(mouseEvent);
+    }, { passive: false });
     
     this.canvas.addEventListener('touchmove', (e) => {
       e.preventDefault();
@@ -56,19 +62,26 @@ class AvatarCreator {
         clientX: touch.clientX,
         clientY: touch.clientY
       });
-      this.canvas.dispatchEvent(mouseEvent);
-    });
+      this.draw(mouseEvent);
+    }, { passive: false });
     
     this.canvas.addEventListener('touchend', (e) => {
       e.preventDefault();
-      const mouseEvent = new MouseEvent('mouseup', {});
-      this.canvas.dispatchEvent(mouseEvent);
-    });
+      this.stopDrawing();
+    }, { passive: false });
   }
   
   startDrawing(e) {
     this.isDrawing = true;
-    this.draw(e);
+    const rect = this.canvas.getBoundingClientRect();
+    this.lastX = e.clientX - rect.left;
+    this.lastY = e.clientY - rect.top;
+    
+    // Draw a single point for clicks without movement
+    this.ctx.beginPath();
+    this.ctx.arc(this.lastX, this.lastY, this.brushSize / 2, 0, Math.PI * 2);
+    this.ctx.fillStyle = this.tool === 'pen' ? this.currentColor : this.options.backgroundColor;
+    this.ctx.fill();
   }
   
   draw(e) {
@@ -78,25 +91,21 @@ class AvatarCreator {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.lastX, this.lastY);
+    this.ctx.lineTo(x, y);
     this.ctx.lineWidth = this.brushSize;
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
-    
-    if (this.tool === 'pen') {
-      this.ctx.strokeStyle = this.currentColor;
-    } else if (this.tool === 'eraser') {
-      this.ctx.strokeStyle = this.options.backgroundColor;
-    }
-    
-    this.ctx.lineTo(x, y);
+    this.ctx.strokeStyle = this.tool === 'pen' ? this.currentColor : this.options.backgroundColor;
     this.ctx.stroke();
-    this.ctx.beginPath();
-    this.ctx.moveTo(x, y);
+    
+    this.lastX = x;
+    this.lastY = y;
   }
   
   stopDrawing() {
     this.isDrawing = false;
-    this.ctx.beginPath();
   }
   
   clearCanvas() {
@@ -126,38 +135,51 @@ class AvatarCreator {
   }
   
   loadImageData(dataUrl) {
-    const img = new Image();
-    img.onload = () => {
-      this.ctx.drawImage(img, 0, 0);
-    };
-    img.src = dataUrl;
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        this.clearCanvas();
+        this.ctx.drawImage(img, 0, 0);
+        resolve();
+      };
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+      };
+      img.src = dataUrl;
+    });
   }
   
-async saveAvatar(token) {
-  const avatarData = this.getImageData();
-  const API_URL = "https://minigame-party.onrender.com/api";
-
-  try {
-    const response = await fetch(`${API_URL}/user/avatar`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ avatar: avatarData })
-    });
-    
-    if (response.ok) {
-      return { success: true };
-    } else {
-      const data = await response.json();
-      return { success: false, error: data.error };
+  async saveAvatar(token) {
+    if (!token) {
+      return { success: false, error: 'Kein Token vorhanden' };
     }
-  } catch (error) {
-    return { success: false, error: 'Verbindungsfehler' };
+
+    const avatarData = this.getImageData();
+    const API_URL = "https://minigame-party.onrender.com/api";
+
+    try {
+      const response = await fetch(`${API_URL}/user/avatar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ avatar: avatarData })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, data };
+      } else {
+        const data = await response.json().catch(() => ({}));
+        return { success: false, error: data.error || `HTTP ${response.status}` };
+      }
+    } catch (error) {
+      console.error('Avatar save error:', error);
+      return { success: false, error: 'Verbindungsfehler' };
+    }
   }
 }
-
 
 // Helper function to initialize avatar creator
 function initAvatarCreator(canvasId, options = {}) {
@@ -172,6 +194,7 @@ function setupColorPicker(pickerId, avatarCreator) {
       avatarCreator.setColor(e.target.value);
     });
   }
+  return picker;
 }
 
 // Helper to setup brush size slider
@@ -188,6 +211,7 @@ function setupBrushSize(sliderId, valueId, avatarCreator) {
       }
     });
   }
+  return slider;
 }
 
 // Helper to display avatar in an img element
@@ -195,5 +219,7 @@ function displayAvatar(imgId, avatarData) {
   const img = document.getElementById(imgId);
   if (img && avatarData) {
     img.src = avatarData;
+    img.alt = 'Avatar';
   }
+  return img;
 }
