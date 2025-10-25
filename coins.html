@@ -3,48 +3,414 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Münzturm</title>
+  <title>🪙 Münzturm - Minigame Party</title>
   <link rel="stylesheet" href="../css/style.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 3em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+      animation: coin-spin 3s ease-in-out infinite;
+    }
+
+    @keyframes coin-spin {
+      0%, 100% { transform: rotateY(0deg); }
+      50% { transform: rotateY(180deg); }
+    }
+
+    .game-info {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 15px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(10px);
+      text-align: center;
+    }
+
+    .game-info h2 {
+      font-size: 1.8em;
+      margin-bottom: 10px;
+    }
+
+    .game-info p {
+      font-size: 1.1em;
+      opacity: 0.9;
+      margin-bottom: 15px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .stat-label {
+      font-size: 0.9em;
+      opacity: 0.8;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+      color: #ffd700;
+    }
+
+    .game-canvas-wrapper {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      position: relative;
+    }
+
+    #gameCanvas {
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      background: linear-gradient(to bottom, #87ceeb 0%, #ffffff 100%);
+      cursor: pointer;
+    }
+
+    .game-over-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      padding: 40px;
+      border-radius: 20px;
+      text-align: center;
+      display: none;
+      z-index: 10;
+      animation: slideIn 0.5s ease-out;
+    }
+
+    .game-over-overlay.show {
+      display: block;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+      }
+    }
+
+    .game-over-overlay h2 {
+      font-size: 2.5em;
+      margin-bottom: 15px;
+      color: #ffd700;
+    }
+
+    .game-over-overlay p {
+      font-size: 1.3em;
+      margin-bottom: 20px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+
+    button {
+      padding: 15px 40px;
+      font-size: 1.2em;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-drop {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #333;
+    }
+
+    .btn-restart {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+    }
+
+    .btn-back {
+      background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+      color: white;
+    }
+
+    .instructions {
+      background: rgba(255, 215, 0, 0.2);
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      border: 2px solid rgba(255, 215, 0, 0.4);
+      text-align: center;
+    }
+
+    .instructions strong {
+      color: #ffd700;
+      font-size: 1.2em;
+    }
+
+    .leaderboard {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 25px;
+      border-radius: 15px;
+      margin-top: 30px;
+      backdrop-filter: blur(10px);
+    }
+
+    .leaderboard h3 {
+      text-align: center;
+      font-size: 2em;
+      margin-bottom: 20px;
+      color: #ffd700;
+    }
+
+    .leaderboard-tabs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 10px 25px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      color: white;
+      font-size: 1em;
+    }
+
+    .tab.active {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      border-color: #ffd700;
+      color: #333;
+    }
+
+    .leaderboard-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      margin-bottom: 10px;
+      border-radius: 10px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .leaderboard-item:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateX(5px);
+    }
+
+    .leaderboard-item:nth-child(1) { border-color: #ffd700; }
+    .leaderboard-item:nth-child(2) { border-color: #c0c0c0; }
+    .leaderboard-item:nth-child(3) { border-color: #cd7f32; }
+
+    .rank {
+      font-size: 1.5em;
+      font-weight: bold;
+      min-width: 50px;
+      text-align: center;
+      color: #ffd700;
+    }
+
+    .leaderboard-item:nth-child(1) .rank { color: #ffd700; font-size: 2em; }
+    .leaderboard-item:nth-child(2) .rank { color: #c0c0c0; font-size: 1.8em; }
+    .leaderboard-item:nth-child(3) .rank { color: #cd7f32; font-size: 1.6em; }
+
+    .leaderboard-item img {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      object-fit: cover;
+    }
+
+    .username {
+      flex: 1;
+      font-size: 1.2em;
+      font-weight: 600;
+    }
+
+    .score {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #ffd700;
+    }
+
+    .no-data {
+      text-align: center;
+      padding: 30px;
+      opacity: 0.7;
+      font-size: 1.1em;
+    }
+
+    @media (max-width: 768px) {
+      h1 { font-size: 2em; }
+      #gameCanvas { 
+        width: 100% !important;
+        height: auto !important;
+      }
+      .button-group { flex-direction: column; }
+      button { width: 100%; }
+    }
+  </style>
 </head>
 <body>
-  <div class="container game-container">
+  <div class="container">
     <h1>🪙 Münzturm</h1>
     
     <div class="game-info">
       <h2>Staple Münzen so hoch wie möglich!</h2>
-      <p>Klicke zur richtigen Zeit, um zu stapeln</p>
-      <div class="score-display">Höhe: <span id="score">0</span></div>
+      <p>Klicke zur richtigen Zeit, um die Münze zu platzieren</p>
+      
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">Höhe</div>
+          <div class="stat-value" id="score">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Bestleistung</div>
+          <div class="stat-value" id="bestScore">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Geschwindigkeit</div>
+          <div class="stat-value" id="speed">1x</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <strong>💡 Tipp:</strong> Klicke wenn die Münze genau über der letzten liegt!
     </div>
     
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div class="game-canvas-wrapper">
+      <canvas id="gameCanvas" width="400" height="600"></canvas>
+      <div class="game-over-overlay" id="gameOverlay">
+        <h2 id="gameOverTitle">🎉 Geschafft!</h2>
+        <p id="gameOverMessage">Höhe: 0</p>
+        <div class="button-group">
+          <button class="btn-restart" onclick="resetGame()">🔄 Neustart</button>
+        </div>
+      </div>
+    </div>
     
-    <button onclick="dropCoin()" id="dropBtn">🪙 Münze platzieren</button>
-    <button onclick="resetGame()">🔄 Neustart</button>
-    <button onclick="window.location.href='../menu.html'" style="background: #666;">⬅️ Zurück</button>
+    <div class="button-group">
+      <button class="btn-drop" onclick="dropCoin()" id="dropBtn">🪙 Münze platzieren (LEERTASTE)</button>
+      <button class="btn-restart" onclick="resetGame()">🔄 Neustart</button>
+      <button class="btn-back" onclick="window.location.href='../menu.html'">⬅️ Zurück</button>
+    </div>
     
     <div class="leaderboard">
-      <h3>🏆 Rangliste</h3>
+      <h3>🏆 Höchste Türme</h3>
       <div class="leaderboard-tabs">
-        <button class="tab active" onclick="loadLeaderboard('daily')">📅 Heute</button>
-        <button class="tab" onclick="loadLeaderboard('alltime')">🌟 All-Time</button>
+        <button class="tab active" onclick="loadLeaderboard('daily', event)">📅 Heute</button>
+        <button class="tab" onclick="loadLeaderboard('weekly', event)">📊 Woche</button>
+        <button class="tab" onclick="loadLeaderboard('alltime', event)">🌟 All-Time</button>
       </div>
-      <div id="leaderboardContent"></div>
+      <div id="leaderboardContent">
+        <div class="no-data">Lade Rangliste...</div>
+      </div>
     </div>
   </div>
 
+  <script src="../js/auth.js"></script>
   <script>
     const API_URL = "https://minigame-party.onrender.com/api";
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const token = localStorage.getItem('token');
     
-    if (!token) window.location.href = '../login.html';
+    // Auth Check
+    if (!requireAuth()) {
+      throw new Error('Not authenticated');
+    }
+    
+    const token = getToken();
     
     let coins = [];
     let currentCoin = null;
     let coinSpeed = 2;
     let gameOver = false;
     let score = 0;
+    let bestScore = parseInt(localStorage.getItem('coinTowerBest')) || 0;
+    let animationId = null;
+    
+    // Update best score display
+    document.getElementById('bestScore').textContent = bestScore;
     
     class Coin {
       constructor(x, y, isMoving = false) {
@@ -58,14 +424,27 @@
       }
       
       draw() {
+        // Coin body
         ctx.fillStyle = '#FFD700';
         ctx.strokeStyle = '#FFA500';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         
         ctx.beginPath();
         ctx.ellipse(this.x, this.y, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+        
+        // Inner shine
+        ctx.fillStyle = '#FFED4E';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.width / 2 - 8, this.height / 2 - 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(this.x - 10, this.y - 3, this.width / 4, this.height / 3, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
       
       update() {
@@ -80,47 +459,78 @@
     }
     
     function init() {
+      // Clear any existing animation
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      
       coins = [];
       coins.push(new Coin(canvas.width / 2, canvas.height - 50));
       currentCoin = new Coin(canvas.width / 2, canvas.height - 100, true);
       gameOver = false;
       score = 0;
       coinSpeed = 2;
+      
       document.getElementById('score').textContent = score;
+      document.getElementById('speed').textContent = '1x';
+      document.getElementById('dropBtn').disabled = false;
+      document.getElementById('gameOverlay').classList.remove('show');
+      
       gameLoop();
     }
     
     function gameLoop() {
       if (gameOver) return;
       
+      // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Zeichne alle platzierten Münzen
+      // Draw ground line
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, canvas.height - 30);
+      ctx.lineTo(canvas.width, canvas.height - 30);
+      ctx.stroke();
+      
+      // Draw all placed coins
       coins.forEach(coin => coin.draw());
       
-      // Zeichne aktuelle Münze
+      // Draw current coin
       if (currentCoin) {
         currentCoin.update();
         currentCoin.draw();
+        
+        // Draw shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.beginPath();
+        ctx.ellipse(currentCoin.x, canvas.height - 25, currentCoin.width / 2, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
       
-      requestAnimationFrame(gameLoop);
+      // Draw height indicator
+      if (score > 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Höhe: ${score}`, 10, 30);
+      }
+      
+      animationId = requestAnimationFrame(gameLoop);
     }
     
     function dropCoin() {
-      if (gameOver || !currentCoin) return;
+      if (gameOver || !currentCoin || !currentCoin.isMoving) return;
       
       currentCoin.isMoving = false;
       
-      // Prüfe, ob Münze korrekt platziert wurde
+      // Check if coin is placed correctly
       const lastCoin = coins[coins.length - 1];
       const overlap = Math.abs(currentCoin.x - lastCoin.x);
       
-      if (overlap > currentCoin.width * 0.7) {
-        // Zu weit daneben → Game Over
-        gameOver = true;
-        saveScore(score);
-        alert(`Game Over! Höhe: ${score}`);
+      if (overlap > currentCoin.width * 0.6) {
+        // Too far off → Game Over
+        endGame(false);
         return;
       }
       
@@ -128,20 +538,53 @@
       score++;
       document.getElementById('score').textContent = score;
       
-      // Schwierigkeit erhöhen
-      coinSpeed += 0.3;
+      // Update best score
+      if (score > bestScore) {
+        bestScore = score;
+        localStorage.setItem('coinTowerBest', bestScore);
+        document.getElementById('bestScore').textContent = bestScore;
+      }
+      
+      // Increase difficulty
+      coinSpeed = Math.min(2 + (score * 0.2), 8);
+      document.getElementById('speed').textContent = (coinSpeed / 2).toFixed(1) + 'x';
       
       const newY = currentCoin.y - 20;
-      if (newY < 50) {
-        // Sieg
-        gameOver = true;
-        saveScore(score);
-        alert(`Wow! Du hast gewonnen! Höhe: ${score}`);
+      if (newY < 30) {
+        // Victory - reached the top!
+        endGame(true);
         return;
       }
       
-      currentCoin = new Coin(Math.random() * canvas.width, newY, true);
+      currentCoin = new Coin(Math.random() * (canvas.width - 60) + 30, newY, true);
       currentCoin.speed = coinSpeed;
+    }
+    
+    function endGame(victory) {
+      gameOver = true;
+      document.getElementById('dropBtn').disabled = true;
+      
+      const overlay = document.getElementById('gameOverlay');
+      const title = document.getElementById('gameOverTitle');
+      const message = document.getElementById('gameOverMessage');
+      
+      if (victory) {
+        title.textContent = '🎉 Unglaublich!';
+        message.innerHTML = `
+          Du hast das Dach erreicht!<br>
+          <strong>Höhe: ${score}</strong><br>
+          <span style="font-size: 0.9em; color: #ffd700;">🏆 Perfekte Leistung!</span>
+        `;
+      } else {
+        title.textContent = '💥 Game Over';
+        message.innerHTML = `
+          Turm eingestürzt!<br>
+          <strong>Höhe: ${score}</strong>
+        `;
+      }
+      
+      overlay.classList.add('show');
+      saveScore(score);
     }
     
     function resetGame() {
@@ -149,6 +592,8 @@
     }
     
     async function saveScore(finalScore) {
+      if (finalScore === 0) return;
+      
       try {
         const response = await fetch(`${API_URL}/scores`, {
           method: 'POST',
@@ -161,8 +606,10 @@
         
         if (response.ok) {
           const data = await response.json();
-          alert(`Score gespeichert! +${data.coins} Münzen 🪙`);
-          loadLeaderboard('daily');
+          setTimeout(() => {
+            alert(`🎯 Score gespeichert!\n🪙 +${data.coins} Münzen verdient!`);
+            loadLeaderboard('daily');
+          }, 500);
         } else {
           console.error("Fehler beim Speichern des Scores");
         }
@@ -171,28 +618,61 @@
       }
     }
     
-    async function loadLeaderboard(type) {
+    async function loadLeaderboard(type, event) {
       try {
         const response = await fetch(`${API_URL}/leaderboard/coins/${type}`);
         const data = await response.json();
         
         const content = document.getElementById('leaderboardContent');
-        content.innerHTML = data.slice(0, 10).map((entry, i) => `
-          <div class="leaderboard-item">
-            <span class="rank">#${i + 1}</span>
-            ${entry.avatar ? `<img src="${entry.avatar}" alt="Avatar">` : ''}
-            <span class="username">${entry.username}</span>
-            <span class="score">${entry.score}</span>
-          </div>
-        `).join('');
         
+        if (!data || data.length === 0) {
+          content.innerHTML = '<div class="no-data">Noch keine Einträge vorhanden 🎮</div>';
+          return;
+        }
+        
+        content.innerHTML = data.slice(0, 10).map((entry, i) => {
+          const displayName = entry.displayName || entry.username;
+          const medals = ['🥇', '🥈', '🥉'];
+          const medal = i < 3 ? medals[i] : '';
+          
+          return `
+            <div class="leaderboard-item">
+              <span class="rank">${medal || '#' + (i + 1)}</span>
+              ${entry.avatar ? `<img src="${entry.avatar}" alt="${displayName}">` : `<div style="width: 50px; height: 50px; background: linear-gradient(135deg, #f093fb, #f5576c); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5em; font-weight: bold;">${displayName.charAt(0).toUpperCase()}</div>`}
+              <span class="username">${displayName}</span>
+              <span class="score">${entry.score.toLocaleString()}</span>
+            </div>
+          `;
+        }).join('');
+        
+        // Update active tab
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
+        if (event) {
+          event.target.classList.add('active');
+        } else {
+          document.querySelector('.tab').classList.add('active');
+        }
       } catch (error) {
         console.error("Fehler beim Laden der Rangliste:", error);
+        document.getElementById('leaderboardContent').innerHTML = 
+          '<div class="no-data">Fehler beim Laden der Rangliste 😢</div>';
       }
     }
     
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !gameOver) {
+        e.preventDefault();
+        dropCoin();
+      }
+    });
+    
+    // Canvas click
+    canvas.addEventListener('click', () => {
+      if (!gameOver) dropCoin();
+    });
+    
+    // Initialize game
     init();
     loadLeaderboard('daily');
   </script>

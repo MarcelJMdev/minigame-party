@@ -15,9 +15,9 @@
     }
 
     .container {
-      max-width: 400px;
-      margin: 70px auto;
-      padding: 25px;
+      max-width: 450px;
+      margin: 50px auto;
+      padding: 30px;
       background: rgba(0, 0, 0, 0.35);
       border-radius: 15px;
       box-shadow: 0 0 10px rgba(0,0,0,0.4);
@@ -45,6 +45,7 @@
       border-radius: 8px;
       font-size: 1em;
       width: 100%;
+      box-sizing: border-box;
     }
 
     button {
@@ -56,10 +57,19 @@
       font-size: 1.1em;
       cursor: pointer;
       transition: background 0.2s;
+      font-weight: bold;
     }
 
     button:hover {
       background: #2ecc71;
+    }
+
+    button.guest-btn {
+      background: #3498db;
+    }
+
+    button.guest-btn:hover {
+      background: #5dade2;
     }
 
     #message {
@@ -95,6 +105,58 @@
     .link a:hover {
       text-decoration: underline;
     }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 25px 0;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .divider span {
+      padding: 0 15px;
+      font-weight: bold;
+      font-size: 0.9em;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .guest-section {
+      background: rgba(52, 152, 219, 0.15);
+      padding: 20px;
+      border-radius: 10px;
+      border: 2px solid rgba(52, 152, 219, 0.3);
+    }
+
+    .guest-section h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      text-align: center;
+      color: #3498db;
+    }
+
+    .guest-section p {
+      text-align: center;
+      font-size: 0.9em;
+      margin-bottom: 15px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    small {
+      margin-top: 5px;
+      font-size: 0.85em;
+      color: rgba(255, 255, 255, 0.7);
+    }
   </style>
 </head>
 <body>
@@ -104,6 +166,7 @@
     
     <div id="message"></div>
     
+    <!-- Normaler Login -->
     <form id="loginForm">
       <div class="form-group">
         <label for="username">Benutzername</label>
@@ -117,6 +180,33 @@
       
       <button type="submit">Einloggen</button>
     </form>
+
+    <!-- Divider -->
+    <div class="divider">
+      <span>ODER</span>
+    </div>
+
+    <!-- Gast Login (NEU!) -->
+    <div class="guest-section">
+      <h3>🎯 Als Gast spielen</h3>
+      <p>Kein Account nötig – einfach Nickname eingeben und losspielen!</p>
+      
+      <form id="guestForm">
+        <div class="form-group">
+          <label for="nickname">Dein Nickname</label>
+          <input 
+            type="text" 
+            id="nickname" 
+            placeholder="z.B. ProGamer123" 
+            maxlength="20" 
+            required
+          >
+          <small>💡 Wird im Leaderboard angezeigt</small>
+        </div>
+        
+        <button type="submit" class="guest-btn">Als Gast starten</button>
+      </form>
+    </div>
     
     <div class="link">
       Noch kein Account? <a href="register.html">Jetzt registrieren</a>
@@ -126,6 +216,7 @@
   <script>
     const API_URL = "https://minigame-party.onrender.com/api";
 
+    // Normaler Login
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -148,6 +239,7 @@
         if (response.ok) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('username', data.username);
+          localStorage.setItem('isGuest', 'false');
 
           showMessage("Login erfolgreich!", "success");
 
@@ -165,12 +257,63 @@
         showMessage("Verbindungsfehler – Server nicht erreichbar!", "error");
       }
     });
+
+    // Gast Login (NEU!)
+    document.getElementById('guestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const nickname = document.getElementById('nickname').value.trim();
+
+      if (!nickname) {
+        return showMessage("Bitte gib einen Nickname ein!", "error");
+      }
+
+      if (nickname.length < 2) {
+        return showMessage("Nickname muss mindestens 2 Zeichen lang sein!", "error");
+      }
+
+      if (nickname.length > 20) {
+        return showMessage("Nickname darf maximal 20 Zeichen lang sein!", "error");
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/guest-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nickname })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('username', data.username);
+          localStorage.setItem('nickname', data.nickname);
+          localStorage.setItem('isGuest', 'true');
+
+          showMessage("Als Gast angemeldet! 🎮", "success");
+
+          setTimeout(() => {
+            window.location.href = "menu.html";
+          }, 1000);
+        } else {
+          showMessage(data.error || "Gast-Login fehlgeschlagen!", "error");
+        }
+      } catch (error) {
+        showMessage("Verbindungsfehler – Server nicht erreichbar!", "error");
+      }
+    });
     
     function showMessage(text, type) {
       const msg = document.getElementById('message');
       msg.textContent = text;
       msg.className = type;
       msg.style.display = "block";
+      
+      // Nach 5 Sekunden ausblenden
+      setTimeout(() => {
+        msg.style.display = "none";
+      }, 5000);
     }
 
     // Wenn schon eingeloggt → direkt weiterleiten

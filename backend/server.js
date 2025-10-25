@@ -18,7 +18,6 @@ app.set('trust proxy', 1);
 // CORS konfigurieren
 const corsOptions = {
   origin: function (origin, callback) {
-    // Erlaube Requests ohne Origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
@@ -30,28 +29,27 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(null, true); // Oder false für strikte CORS
+      callback(null, true);
     }
   },
   credentials: true
 };
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
 // Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 Minuten
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: { error: 'Zu viele Anfragen, bitte später erneut versuchen' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Stricter Rate Limiting für Auth-Endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 10,
   skipSuccessfulRequests: true,
   message: { error: 'Zu viele Login-Versuche, bitte später erneut versuchen' }
 });
@@ -83,6 +81,48 @@ const authenticateToken = (req, res, next) => {
 };
 
 // ================= AUTH ROUTES =================
+
+// GAST-LOGIN (NEU!)
+app.post('/api/guest-login', authLimiter, async (req, res) => {
+  try {
+    const { nickname } = req.body;
+    
+    // Validierung
+    if (!nickname || nickname.trim().length === 0) {
+      return res.status(400).json({ error: 'Nickname erforderlich' });
+    }
+    
+    if (nickname.length < 2 || nickname.length > 20) {
+      return res.status(400).json({ error: 'Nickname muss 2-20 Zeichen lang sein' });
+    }
+
+    // Generiere eindeutigen Gast-Username
+    const guestUsername = `Gast_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const clientIp = req.ip || req.connection.remoteAddress;
+    
+    // Erstelle Gast-Account (ohne Passwort)
+    const userId = await db.createGuestUser(guestUsername, nickname, clientIp);
+    
+    const token = jwt.sign(
+      { userId, username: guestUsername, nickname, isGuest: true }, 
+      JWT_SECRET, 
+      { expiresIn: '24h' } // Gäste-Token läuft nach 24h ab
+    );
+
+    res.status(201).json({ 
+      token, 
+      userId, 
+      username: guestUsername,
+      nickname,
+      isGuest: true,
+      message: 'Als Gast angemeldet'
+    });
+  } catch (error) {
+    console.error('Gast-Login-Fehler:', error);
+    res.status(500).json({ error: 'Serverfehler beim Gast-Login' });
+  }
+});
+
 app.post('/api/register', authLimiter, async (req, res) => {
   try {
     const { username, password, ipAddress } = req.body;
@@ -108,12 +148,13 @@ app.post('/api/register', authLimiter, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const clientIp = ipAddress || req.ip || req.connection.remoteAddress;
     const userId = await db.createUser(username, hashedPassword, clientIp);
-    const token = jwt.sign({ userId, username }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId, username, isGuest: false }, JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({ 
       token, 
       userId, 
       username,
+      isGuest: false,
       message: 'Registrierung erfolgreich'
     });
   } catch (error) {
@@ -135,13 +176,18 @@ app.post('/api/login', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
     }
 
+    // Gast-Accounts können sich nicht mit Passwort einloggen
+    if (user.is_guest) {
+      return res.status(400).json({ error: 'Gast-Accounts können sich nicht einloggen' });
+    }
+
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.status(400).json({ error: 'Falscher Benutzername oder Passwort' });
     }
 
     const token = jwt.sign(
-      { userId: user.id, username: user.username }, 
+      { userId: user.id, username: user.username, isGuest: false }, 
       JWT_SECRET, 
       { expiresIn: '7d' }
     );
@@ -151,7 +197,8 @@ app.post('/api/login', authLimiter, async (req, res) => {
       userId: user.id, 
       username: user.username, 
       hasAvatar: !!user.avatar,
-      coins: user.coins || 0
+      coins: user.coins || 0,
+      isGuest: false
     });
   } catch (error) {
     console.error('Login-Fehler:', error);
@@ -169,9 +216,11 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
 
     res.json({
       username: user.username,
+      nickname: user.nickname,
       coins: user.coins || 0,
       avatar: user.avatar,
-      createdAt: user.created_at
+      createdAt: user.created_at,
+      isGuest: user.is_guest || false
     });
   } catch (error) {
     console.error('Profil-Fehler:', error);
@@ -187,7 +236,6 @@ app.post('/api/user/avatar', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Avatar-Daten fehlen' });
     }
     
-    // Validiere Base64 Format
     if (!avatar.startsWith('data:image/')) {
       return res.status(400).json({ error: 'Ungültiges Avatar-Format' });
     }
@@ -224,6 +272,11 @@ app.put('/api/user/username', authenticateToken, async (req, res) => {
   try {
     const { newUsername } = req.body;
     
+    // Gäste können Username nicht ändern
+    if (req.user.isGuest) {
+      return res.status(403).json({ error: 'Gäste können den Username nicht ändern' });
+    }
+    
     if (!newUsername) {
       return res.status(400).json({ error: 'Neuer Benutzername erforderlich' });
     }
@@ -239,9 +292,8 @@ app.put('/api/user/username', authenticateToken, async (req, res) => {
 
     await db.updateUsername(req.user.userId, newUsername);
     
-    // Neuen Token mit aktualisiertem Username
     const token = jwt.sign(
-      { userId: req.user.userId, username: newUsername }, 
+      { userId: req.user.userId, username: newUsername, isGuest: false }, 
       JWT_SECRET, 
       { expiresIn: '7d' }
     );
@@ -259,6 +311,11 @@ app.put('/api/user/username', authenticateToken, async (req, res) => {
 
 app.put('/api/user/password', authenticateToken, async (req, res) => {
   try {
+    // Gäste können Passwort nicht ändern
+    if (req.user.isGuest) {
+      return res.status(403).json({ error: 'Gäste können kein Passwort setzen' });
+    }
+    
     const { oldPassword, newPassword } = req.body;
     
     if (!oldPassword || !newPassword) {
@@ -283,6 +340,60 @@ app.put('/api/user/password', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Passwort-Fehler:', error);
     res.status(500).json({ error: 'Serverfehler beim Ändern des Passworts' });
+  }
+});
+
+// Gast-Account zu registriertem Account upgraden (NEU!)
+app.post('/api/user/upgrade', authenticateToken, async (req, res) => {
+  try {
+    // Nur Gäste können upgraden
+    if (!req.user.isGuest) {
+      return res.status(400).json({ error: 'Nur Gast-Accounts können geupgradet werden' });
+    }
+    
+    const { username, password } = req.body;
+    
+    // Validierung
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Benutzername und Passwort erforderlich' });
+    }
+    
+    if (username.length < 3 || username.length > 20) {
+      return res.status(400).json({ error: 'Benutzername muss 3-20 Zeichen lang sein' });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Passwort muss mindestens 6 Zeichen lang sein' });
+    }
+    
+    // Prüfe ob Username schon existiert
+    const existing = await db.getUserByUsername(username);
+    if (existing) {
+      return res.status(400).json({ error: 'Benutzername bereits vergeben' });
+    }
+    
+    // Hashe Passwort
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Update User zu registriertem Account
+    await db.upgradeGuestToUser(req.user.userId, username, hashedPassword);
+    
+    // Neuer Token mit isGuest: false
+    const token = jwt.sign(
+      { userId: req.user.userId, username, isGuest: false }, 
+      JWT_SECRET, 
+      { expiresIn: '7d' }
+    );
+    
+    res.json({ 
+      message: 'Account erfolgreich erstellt',
+      token,
+      username,
+      isGuest: false
+    });
+  } catch (error) {
+    console.error('Upgrade-Fehler:', error);
+    res.status(500).json({ error: 'Serverfehler beim Account-Upgrade' });
   }
 });
 
@@ -334,7 +445,6 @@ app.get('/api/leaderboard/:game/:type', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.get('*', (req, res) => {
-  // API-Routes nicht zum Frontend weiterleiten
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'API-Endpoint nicht gefunden' });
   }
