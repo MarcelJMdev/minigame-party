@@ -1,12 +1,20 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+import sqlite3 from "sqlite3";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const dbPath = path.join(__dirname, 'minigame.db');
-const db = new sqlite3.Database(dbPath);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Datenbank initialisieren
+// ✅ Datenbankpfad
+const dbPath = path.join(__dirname, "database.sqlite");
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) console.error("❌ Konnte Datenbank nicht öffnen:", err);
+  else console.log("✅ SQLite verbunden:", dbPath);
+});
+
+// ======================= INITIALISIERUNG =======================
 db.serialize(() => {
-  // Users Tabelle - MIT is_guest und nickname Spalten
+  // Users-Tabelle mit allen Spalten
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,7 +29,7 @@ db.serialize(() => {
     )
   `);
 
-  // Scores Tabelle
+  // Scores-Tabelle
   db.run(`
     CREATE TABLE IF NOT EXISTS scores (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,21 +41,19 @@ db.serialize(() => {
     )
   `);
 
-  // Index für schnellere Abfragen
-  db.run('CREATE INDEX IF NOT EXISTS idx_scores_game ON scores(game)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_scores_created_at ON scores(created_at)');
-  db.run('CREATE INDEX IF NOT EXISTS idx_users_guest ON users(is_guest)');
+  // Indexe
+  db.run(`CREATE INDEX IF NOT EXISTS idx_scores_game ON scores(game)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_scores_created_at ON scores(created_at)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_users_guest ON users(is_guest)`);
 });
 
-// ================= USER FUNCTIONS =================
-
-// Normalen User erstellen
-function createUser(username, password, ipAddress) {
+// ======================= USER-FUNKTIONEN =======================
+export function createUser(username, password, ipAddress) {
   return new Promise((resolve, reject) => {
     db.run(
-      'INSERT INTO users (username, password, ip_address, is_guest) VALUES (?, ?, ?, 0)',
+      `INSERT INTO users (username, password, ip_address, is_guest) VALUES (?, ?, ?, 0)`,
       [username, password, ipAddress],
-      function(err) {
+      function (err) {
         if (err) reject(err);
         else resolve(this.lastID);
       }
@@ -55,13 +61,12 @@ function createUser(username, password, ipAddress) {
   });
 }
 
-// GAST-USER ERSTELLEN (NEU!)
-function createGuestUser(username, nickname, ipAddress) {
+export function createGuestUser(username, nickname, ipAddress) {
   return new Promise((resolve, reject) => {
     db.run(
-      'INSERT INTO users (username, nickname, password, ip_address, is_guest) VALUES (?, ?, NULL, ?, 1)',
+      `INSERT INTO users (username, nickname, password, ip_address, is_guest) VALUES (?, ?, NULL, ?, 1)`,
       [username, nickname, ipAddress],
-      function(err) {
+      function (err) {
         if (err) reject(err);
         else resolve(this.lastID);
       }
@@ -69,89 +74,46 @@ function createGuestUser(username, nickname, ipAddress) {
   });
 }
 
-function getUserByUsername(username) {
+export function getUserByUsername(username) {
   return new Promise((resolve, reject) => {
-    db.get(
-      'SELECT * FROM users WHERE username = ?',
-      [username],
-      (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      }
-    );
+    db.get(`SELECT * FROM users WHERE username = ?`, [username], (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
   });
 }
 
-function getUserById(userId) {
+export function getUserById(id) {
   return new Promise((resolve, reject) => {
-    db.get(
-      'SELECT * FROM users WHERE id = ?',
-      [userId],
-      (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      }
-    );
+    db.get(`SELECT * FROM users WHERE id = ?`, [id], (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
   });
 }
 
-function updateAvatar(userId, avatar) {
+export function updateAvatar(userId, avatar) {
+  return new Promise((resolve, reject) => {
+    db.run(`UPDATE users SET avatar = ? WHERE id = ?`, [avatar, userId], (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+export function addCoins(userId, coins) {
+  return new Promise((resolve, reject) => {
+    db.run(`UPDATE users SET coins = coins + ? WHERE id = ?`, [coins, userId], (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+
+export function upgradeGuestToUser(userId, newUsername, hashedPassword) {
   return new Promise((resolve, reject) => {
     db.run(
-      'UPDATE users SET avatar = ? WHERE id = ?',
-      [avatar, userId],
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
-}
-
-function updateUsername(userId, newUsername) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'UPDATE users SET username = ? WHERE id = ?',
-      [newUsername, userId],
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
-}
-
-function updatePassword(userId, hashedPassword) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'UPDATE users SET password = ? WHERE id = ?',
-      [hashedPassword, userId],
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
-}
-
-function addCoins(userId, coins) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'UPDATE users SET coins = coins + ? WHERE id = ?',
-      [coins, userId],
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
-}
-
-// Gast-Account zu registriertem Account upgraden (NEU!)
-function upgradeGuestToUser(userId, newUsername, hashedPassword) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'UPDATE users SET username = ?, password = ?, is_guest = 0, nickname = NULL WHERE id = ?',
+      `UPDATE users SET username = ?, password = ?, is_guest = 0, nickname = NULL WHERE id = ?`,
       [newUsername, hashedPassword, userId],
       (err) => {
         if (err) reject(err);
@@ -161,14 +123,13 @@ function upgradeGuestToUser(userId, newUsername, hashedPassword) {
   });
 }
 
-// ================= SCORE FUNCTIONS =================
-
-function saveScore(userId, game, score) {
+// ======================= SCORE-FUNKTIONEN =======================
+export function saveScore(userId, game, score) {
   return new Promise((resolve, reject) => {
     db.run(
-      'INSERT INTO scores (user_id, game, score) VALUES (?, ?, ?)',
+      `INSERT INTO scores (user_id, game, score) VALUES (?, ?, ?)`,
       [userId, game, score],
-      function(err) {
+      function (err) {
         if (err) reject(err);
         else resolve(this.lastID);
       }
@@ -176,15 +137,11 @@ function saveScore(userId, game, score) {
   });
 }
 
-function getLeaderboard(game, type) {
+export function getLeaderboard(game, type) {
   return new Promise((resolve, reject) => {
-    let timeFilter = '';
-    
-    if (type === 'daily') {
-      timeFilter = "AND DATE(scores.created_at) = DATE('now')";
-    } else if (type === 'weekly') {
-      timeFilter = "AND DATE(scores.created_at) >= DATE('now', '-7 days')";
-    }
+    let timeFilter = "";
+    if (type === "daily") timeFilter = "AND DATE(scores.created_at) = DATE('now')";
+    else if (type === "weekly") timeFilter = "AND DATE(scores.created_at) >= DATE('now', '-7 days')";
 
     const query = `
       SELECT 
@@ -205,49 +162,20 @@ function getLeaderboard(game, type) {
     db.all(query, [game], (err, rows) => {
       if (err) reject(err);
       else {
-        // Verwende Nickname für Gäste, sonst Username
-        const formattedRows = rows.map(row => ({
-          ...row,
-          displayName: row.is_guest && row.nickname ? row.nickname : row.username
+        const formatted = rows.map(r => ({
+          ...r,
+          displayName: r.is_guest && r.nickname ? r.nickname : r.username,
         }));
-        resolve(formattedRows);
+        resolve(formatted);
       }
     });
   });
 }
 
-// ================= CLEANUP FUNCTIONS =================
-
-// Alte Gast-Accounts löschen (älter als 7 Tage)
+// ======================= AUTO-CLEANUP =======================
 function cleanupOldGuests() {
-  return new Promise((resolve, reject) => {
-    db.run(
-      "DELETE FROM users WHERE is_guest = 1 AND created_at < DATE('now', '-7 days')",
-      (err) => {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
+  db.run(`DELETE FROM users WHERE is_guest = 1 AND created_at < DATE('now', '-7 days')`);
 }
+setInterval(cleanupOldGuests, 24 * 60 * 60 * 1000);
 
-// Cleanup Job alle 24 Stunden
-setInterval(() => {
-  cleanupOldGuests()
-    .then(() => console.log('✓ Alte Gast-Accounts bereinigt'))
-    .catch(err => console.error('Fehler beim Bereinigen:', err));
-}, 24 * 60 * 60 * 1000);
-
-module.exports = {
-  createUser,
-  createGuestUser,
-  getUserByUsername,
-  getUserById,
-  updateAvatar,
-  updateUsername,
-  updatePassword,
-  addCoins,
-  saveScore,
-  getLeaderboard,
-  cleanupOldGuests
-};
+export default db;
