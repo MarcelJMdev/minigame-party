@@ -5,6 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hauptmenü - Minigame Party</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 60px auto;
+      padding: 25px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.4);
+    }
+
+    .user-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+
+    .user-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      border: 2px solid white;
+    }
+
+    button {
+      border: none;
+      padding: 10px 20px;
+      background: #27ae60;
+      color: white;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #2ecc71;
+    }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+
+    .game-card {
+      background: rgba(0,0,0,0.4);
+      padding: 20px;
+      border-radius: 15px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .game-card:hover {
+      background: rgba(0,0,0,0.6);
+      transform: scale(1.05);
+    }
+
+    .icon {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    #settingsModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #settingsModal .container {
+      background: #1f1f1f;
+      border-radius: 15px;
+      padding: 25px;
+      text-align: left;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      margin-top: 5px;
+    }
+
+    h2, h3 {
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
   <div class="container menu-container">
@@ -19,8 +122,8 @@
         </div>
       </div>
       <div>
-        <button onclick="openSettings()" style="width: auto; padding: 10px 20px; margin: 0;">⚙️ Einstellungen</button>
-        <button onclick="logout()" style="width: auto; padding: 10px 20px; margin: 5px 0 0 0; background: #ff4444;">🚪 Logout</button>
+        <button onclick="openSettings()">⚙️ Einstellungen</button>
+        <button onclick="logout()" style="background: #ff4444;">🚪 Logout</button>
       </div>
     </div>
     
@@ -54,7 +157,7 @@
   </div>
 
   <!-- Settings Modal -->
-  <div id="settingsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+  <div id="settingsModal">
     <div class="container" style="max-width: 400px;">
       <h2>⚙️ Einstellungen</h2>
       
@@ -64,7 +167,7 @@
         <button onclick="changeUsername()" style="margin-top: 5px;">Ändern</button>
       </div>
       
-      <div class="form-group">
+      <div class="form-group" style="margin-top: 15px;">
         <label>Altes Passwort</label>
         <input type="password" id="oldPassword">
       </div>
@@ -75,117 +178,118 @@
         <button onclick="changePassword()" style="margin-top: 5px;">Passwort ändern</button>
       </div>
       
-      <button onclick="window.location.href='avatar-creator.html'" style="background: #4CAF50;">🎨 Avatar neu zeichnen</button>
+      <button onclick="window.location.href='avatar-creator.html'" style="background: #4CAF50; margin-top: 10px;">🎨 Avatar neu zeichnen</button>
       
       <button onclick="closeSettings()" style="margin-top: 10px; background: #666;">Schließen</button>
     </div>
   </div>
 
   <script>
-    const token = localStorage.getItem('token');
-    
+    const API_URL = "https://minigame-party.onrender.com/api";
+    const token = localStorage.getItem("token");
+
     if (!token) {
-      window.location.href = 'login.html';
+      window.location.href = "login.html";
     }
-    
+
     async function loadUserData() {
       try {
-        const response = await fetch('http://localhost:3000/api/user/profile', {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`${API_URL}/user/profile`, {
+          headers: { "Authorization": `Bearer ${token}` }
         });
         
         if (response.ok) {
           const data = await response.json();
-          document.getElementById('username').textContent = data.username;
-          document.getElementById('coins').textContent = data.coins;
-          
+          document.getElementById("username").textContent = data.username;
+          document.getElementById("coins").textContent = data.coins;
           if (data.avatar) {
-            document.getElementById('userAvatar').src = data.avatar;
+            document.getElementById("userAvatar").src = data.avatar;
           }
         } else {
           logout();
         }
       } catch (error) {
-        console.error('Fehler beim Laden:', error);
+        console.error("Fehler beim Laden:", error);
+        alert("Server nicht erreichbar!");
       }
     }
-    
+
     function playGame(game) {
       window.location.href = `games/${game}.html`;
     }
-    
+
     function openSettings() {
-      document.getElementById('settingsModal').style.display = 'flex';
+      document.getElementById("settingsModal").style.display = "flex";
     }
-    
+
     function closeSettings() {
-      document.getElementById('settingsModal').style.display = 'none';
+      document.getElementById("settingsModal").style.display = "none";
     }
-    
+
     async function changeUsername() {
-      const newUsername = document.getElementById('newUsername').value;
-      if (!newUsername) return alert('Bitte Namen eingeben');
-      
+      const newUsername = document.getElementById("newUsername").value.trim();
+      if (!newUsername) return alert("Bitte Namen eingeben");
+
       try {
-        const response = await fetch('http://localhost:3000/api/user/username', {
-          method: 'PUT',
+        const response = await fetch(`${API_URL}/user/username`, {
+          method: "PUT",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({ newUsername })
         });
         
+        const data = await response.json();
         if (response.ok) {
-          alert('Benutzername geändert!');
-          localStorage.setItem('username', newUsername);
+          alert("Benutzername geändert!");
+          localStorage.setItem("username", newUsername);
           loadUserData();
         } else {
-          const data = await response.json();
-          alert(data.error);
+          alert(data.error || "Fehler beim Ändern!");
         }
-      } catch (error) {
-        alert('Fehler beim Ändern');
+      } catch {
+        alert("Verbindungsfehler – Server nicht erreichbar!");
       }
     }
-    
+
     async function changePassword() {
-      const oldPassword = document.getElementById('oldPassword').value;
-      const newPassword = document.getElementById('newPassword').value;
+      const oldPassword = document.getElementById("oldPassword").value;
+      const newPassword = document.getElementById("newPassword").value;
       
       if (!oldPassword || !newPassword) {
-        return alert('Bitte beide Felder ausfüllen');
+        return alert("Bitte beide Felder ausfüllen");
       }
-      
+
       try {
-        const response = await fetch('http://localhost:3000/api/user/password', {
-          method: 'PUT',
+        const response = await fetch(`${API_URL}/user/password`, {
+          method: "PUT",
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
           },
           body: JSON.stringify({ oldPassword, newPassword })
         });
-        
+
+        const data = await response.json();
         if (response.ok) {
-          alert('Passwort geändert!');
-          document.getElementById('oldPassword').value = '';
-          document.getElementById('newPassword').value = '';
+          alert("Passwort geändert!");
+          document.getElementById("oldPassword").value = "";
+          document.getElementById("newPassword").value = "";
         } else {
-          const data = await response.json();
-          alert(data.error);
+          alert(data.error || "Fehler beim Ändern!");
         }
-      } catch (error) {
-        alert('Fehler beim Ändern');
+      } catch {
+        alert("Verbindungsfehler – Server nicht erreichbar!");
       }
     }
-    
+
     function logout() {
-      localStorage.removeItem('token');
-      localStorage.removeItem('username');
-      window.location.href = 'login.html';
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
+      window.location.href = "login.html";
     }
-    
+
     loadUserData();
   </script>
 </body>

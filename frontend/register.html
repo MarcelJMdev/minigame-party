@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registrierung - Minigame Party</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    #message {
+      text-align: center;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+    }
+    .success {
+      color: green;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -38,39 +51,45 @@
   </div>
 
   <script>
+    const API_URL = "https://minigame-party.onrender.com/api";
+
     document.getElementById('registerForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      const confirmPassword = document.getElementById('confirmPassword').value;
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const confirmPassword = document.getElementById('confirmPassword').value.trim();
       
       if (password !== confirmPassword) {
-        showMessage('Passwörter stimmen nicht überein', 'error');
+        showMessage('❌ Passwörter stimmen nicht überein.', 'error');
+        return;
+      }
+
+      if (username.length < 3 || password.length < 6) {
+        showMessage('⚠️ Benutzername oder Passwort zu kurz.', 'error');
         return;
       }
       
       try {
-  const response = await fetch('http://localhost:3000/api/register', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      username, 
-      password
-          })
+        const response = await fetch(`${API_URL}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
         });
         
         const data = await response.json();
-        
+
         if (response.ok) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('username', data.username);
-          window.location.href = 'avatar-creator.html';
+          showMessage('✅ Registrierung erfolgreich! Weiterleitung...', 'success');
+          setTimeout(() => window.location.href = 'avatar-creator.html', 1000);
         } else {
-          showMessage(data.error, 'error');
+          showMessage(`❌ ${data.error || 'Fehler bei der Registrierung'}`, 'error');
         }
       } catch (error) {
-        showMessage('Verbindungsfehler', 'error');
+        console.error(error);
+        showMessage('🚫 Verbindung zum Server fehlgeschlagen!', 'error');
       }
     });
     

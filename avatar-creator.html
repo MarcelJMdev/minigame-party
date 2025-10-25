@@ -31,6 +31,7 @@
   </div>
 
   <script>
+    const API_URL = "https://minigame-party.onrender.com/api";
     const canvas = document.getElementById('avatarCanvas');
     const ctx = canvas.getContext('2d');
     const colorPicker = document.getElementById('colorPicker');
@@ -40,7 +41,7 @@
     let isDrawing = false;
     let currentTool = 'pen';
     
-    // Canvas Hintergrund weiß machen
+    // Hintergrund auf Weiß setzen
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
@@ -48,46 +49,36 @@
       brushSizeValue.textContent = e.target.value;
     });
     
+    // Zeichen-Events (Maus)
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mouseout', stopDrawing);
     
-    // Touch Support
-    canvas.addEventListener('touchstart', (e) => {
+    // Touch-Support
+    canvas.addEventListener('touchstart', (e) => handleTouch(e, 'mousedown'));
+    canvas.addEventListener('touchmove', (e) => handleTouch(e, 'mousemove'));
+    canvas.addEventListener('touchend', (e) => handleTouch(e, 'mouseup'));
+    
+    function handleTouch(e, type) {
       e.preventDefault();
-      const touch = e.touches[0];
-      const mouseEvent = new MouseEvent('mousedown', {
+      const touch = e.touches[0] || e.changedTouches[0];
+      const mouseEvent = new MouseEvent(type, {
         clientX: touch.clientX,
         clientY: touch.clientY
       });
       canvas.dispatchEvent(mouseEvent);
-    });
-    
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const mouseEvent = new MouseEvent('mousemove', {
-        clientX: touch.clientX,
-        clientY: touch.clientY
-      });
-      canvas.dispatchEvent(mouseEvent);
-    });
-    
-    canvas.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      const mouseEvent = new MouseEvent('mouseup', {});
-      canvas.dispatchEvent(mouseEvent);
-    });
+    }
     
     function startDrawing(e) {
       isDrawing = true;
-      draw(e);
+      const rect = canvas.getBoundingClientRect();
+      ctx.beginPath();
+      ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
     }
     
     function draw(e) {
       if (!isDrawing) return;
-      
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
@@ -96,11 +87,7 @@
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       
-      if (currentTool === 'pen') {
-        ctx.strokeStyle = colorPicker.value;
-      } else if (currentTool === 'eraser') {
-        ctx.strokeStyle = 'white';
-      }
+      ctx.strokeStyle = (currentTool === 'pen') ? colorPicker.value : 'white';
       
       ctx.lineTo(x, y);
       ctx.stroke();
@@ -129,7 +116,7 @@
     async function saveAvatar() {
       const token = localStorage.getItem('token');
       if (!token) {
-        alert('Nicht eingeloggt!');
+        alert('⚠️ Du bist nicht eingeloggt!');
         window.location.href = 'login.html';
         return;
       }
@@ -137,7 +124,7 @@
       const avatarData = canvas.toDataURL('image/png');
       
       try {
-        const response = await fetch('http://localhost:3000/api/user/avatar', {
+        const response = await fetch(`${API_URL}/user/avatar`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -147,13 +134,15 @@
         });
         
         if (response.ok) {
-          alert('Avatar gespeichert! 🎉');
+          alert('✅ Avatar erfolgreich gespeichert!');
           window.location.href = 'menu.html';
         } else {
-          alert('Fehler beim Speichern');
+          const data = await response.json();
+          alert(`❌ Fehler beim Speichern: ${data.error || 'Unbekannter Fehler'}`);
         }
       } catch (error) {
-        alert('Verbindungsfehler');
+        console.error('Verbindungsfehler:', error);
+        alert('🚫 Verbindung zum Server fehlgeschlagen!');
       }
     }
   </script>

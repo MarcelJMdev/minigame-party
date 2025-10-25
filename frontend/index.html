@@ -5,49 +5,137 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minigame Party - Willkommen!</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    body {
+      background: linear-gradient(135deg, #2c3e50, #4ca1af);
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 50px auto;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    p {
+      text-align: center;
+    }
+
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 30px;
+    }
+
+    .game-card {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      transition: transform 0.2s ease, background 0.3s;
+      cursor: default;
+    }
+
+    .game-card:hover {
+      transform: scale(1.05);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .game-card div {
+      font-size: 3em;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.1em;
+      border: none;
+      border-radius: 10px;
+      background: #27ae60;
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #2ecc71;
+    }
+
+    .link {
+      text-align: center;
+      margin-top: 15px;
+    }
+
+    .link a {
+      color: #1abc9c;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .link a:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
-  <div class="container" style="max-width: 700px;">
+  <div class="container">
     <h1>🎮 Minigame Party</h1>
     
     <div style="background: rgba(255,255,255,0.15); padding: 30px; border-radius: 12px; margin: 30px 0;">
-      <h2 style="text-align: center; margin-bottom: 20px;">Willkommen!</h2>
-      <p style="text-align: center; font-size: 1.1em; line-height: 1.6;">
-        Tritt an gegen andere Spieler in lustigen Minigames!<br>
-        Zeichne deinen eigenen Avatar, sammle Münzen und erobere die Ranglisten!
+      <h2>Willkommen!</h2>
+      <p style="font-size: 1.1em; line-height: 1.6;">
+        Tritt gegen andere Spieler in spannenden Minigames an!<br>
+        Erstelle deinen eigenen Avatar, sammle Münzen und erobere die Ranglisten!
       </p>
     </div>
     
-    <div class="games-grid" style="margin: 30px 0;">
-      <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; text-align: center;">
-        <div style="font-size: 3em;">⭕</div>
+    <div class="games-grid">
+      <div class="game-card">
+        <div>⭕</div>
         <h3>Perfekter Kreis</h3>
       </div>
-      <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; text-align: center;">
-        <div style="font-size: 3em;">🍔</div>
+      <div class="game-card">
+        <div>🍔</div>
         <h3>Burger bauen</h3>
       </div>
-      <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; text-align: center;">
-        <div style="font-size: 3em;">🪙</div>
+      <div class="game-card">
+        <div>🪙</div>
         <h3>Münzturm</h3>
       </div>
-      <div style="background: rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; text-align: center;">
-        <div style="font-size: 3em;">⚡</div>
+      <div class="game-card">
+        <div>⚡</div>
         <h3>Reaktionstest</h3>
       </div>
     </div>
     
-    <button onclick="window.location.href='login.html'" style="margin-bottom: 10px;">
+    <button onclick="window.location.href='login.html'" style="margin-top: 25px;">
       🚀 Jetzt spielen
     </button>
     
-    <div class="link" style="text-align: center;">
+    <div class="link">
       Noch kein Account? <a href="register.html">Kostenlos registrieren</a>
     </div>
   </div>
 
   <script>
-    // Auto-redirect wenn bereits eingeloggt
+    // Automatische Weiterleitung, wenn bereits eingeloggt
     const token = localStorage.getItem('token');
     if (token) {
       window.location.href = 'menu.html';
