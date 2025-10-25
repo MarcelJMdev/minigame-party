@@ -133,30 +133,31 @@ class AvatarCreator {
     img.src = dataUrl;
   }
   
-  async saveAvatar(token) {
-    const avatarData = this.getImageData();
+async saveAvatar(token) {
+  const avatarData = this.getImageData();
+  const API_URL = "https://minigame-party.onrender.com/api";
+
+  try {
+    const response = await fetch(`${API_URL}/user/avatar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ avatar: avatarData })
+    });
     
-    try {
-      const response = await fetch('http://localhost:3000/api/user/avatar', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ avatar: avatarData })
-      });
-      
-      if (response.ok) {
-        return { success: true };
-      } else {
-        const data = await response.json();
-        return { success: false, error: data.error };
-      }
-    } catch (error) {
-      return { success: false, error: 'Verbindungsfehler' };
+    if (response.ok) {
+      return { success: true };
+    } else {
+      const data = await response.json();
+      return { success: false, error: data.error };
     }
+  } catch (error) {
+    return { success: false, error: 'Verbindungsfehler' };
   }
 }
+
 
 // Helper function to initialize avatar creator
 function initAvatarCreator(canvasId, options = {}) {
