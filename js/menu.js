@@ -1,5 +1,5 @@
 // Menu Helper Functions
-const API_URL = 'https://minigame-party.onrender.com/api';
+const API_URL = "https://games.farmsucht.eu/api";
 
 // Load user profile data
 async function loadUserProfile() {

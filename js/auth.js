@@ -1,7 +1,7 @@
 // frontend/js/auth.js
 
 // ================= API URL =================
-const API_URL = "https://minigame-party.onrender.com/api";
+const API_URL = "https://games.farmsucht.eu/api";
 
 // ================= Auth Helper Functions =================
 function isAuthenticated() {

@@ -34,6 +34,7 @@ const corsOptions = {
   origin: [
     "https://minigame-party.onrender.com",
     "http://localhost:3000",
+    "https://games.farmsucht.eu/api",
     "http://127.0.0.1:3000"
   ],
   credentials: true

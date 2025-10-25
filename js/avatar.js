@@ -155,7 +155,7 @@ class AvatarCreator {
     }
 
     const avatarData = this.getImageData();
-    const API_URL = "https://minigame-party.onrender.com/api";
+    const API_URL = "https://games.farmsucht.eu/api";
 
     try {
       const response = await fetch(`${API_URL}/user/avatar`, {
